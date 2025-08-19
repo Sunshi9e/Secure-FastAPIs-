@@ -1,11 +1,22 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
+from passlib.context import CryptContext
 import json , os
 
 
 app = FastAPI()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+auth = OAuth2PasswordBearer(tokenUrl="login")
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
 
 # Student model
 class Student(BaseModel):
@@ -51,3 +62,29 @@ def register(student: Student):
     save_students(students)
 
     return {"message": "Student registered successfully"}
+
+
+# Login endpoint
+
+@app.post("/login/")
+def login(student: Student):
+    students = load_students()
+
+    for s in students:
+        if s["username"] == student.username and s["password"] == student.password:
+            return {"access_token": student.username, "token_type": "bearer"}
+
+    return {"error": "Invalid username or password"}
+
+
+@app.get("/grades/")
+def get_grades(token: str = Depends(auth)):
+    students = load_students()
+
+    # token is just username for now
+    for s in students:
+        if s["username"] == token:
+            return {"grades": s["grades"]}
+
+    return {"error": "Invalid token"}
+
