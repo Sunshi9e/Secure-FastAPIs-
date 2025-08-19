@@ -50,18 +50,21 @@ def save_students(students):
 # Register endpoint
 @app.post("/register/")
 def register(student: Student):
-    students = load_students() #variable the student data is loaded into - a dict
+    students = load_students()
 
-    # Check if username already exists
     for s in students:
         if s["username"] == student.username:
             return {"error": "Username already exists"}
 
-    # Convert to dict and save - appending the new data
+    # Hash the password before saving
+    hashed = hash_password(student.password)
+    student.password = hashed
+
     students.append(student.model_dump())
     save_students(students)
 
     return {"message": "Student registered successfully"}
+
 
 
 # Login endpoint
@@ -71,10 +74,13 @@ def login(student: Student):
     students = load_students()
 
     for s in students:
-        if s["username"] == student.username and s["password"] == student.password:
-            return {"access_token": student.username, "token_type": "bearer"}
+        if s["username"] == student.username:
+            if verify_password(student.password, s["password"]):
+            
+                return {"access_token": student.username, "token_type": "bearer"}
+            return {"error": "Invalid password"}
 
-    return {"error": "Invalid username or password"}
+    return {"error": "Invalid username"}
 
 
 @app.get("/grades/")
